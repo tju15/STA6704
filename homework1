@@ -1,0 +1,207 @@
+library(viridis)
+library(useful)
+library(ggplot2)
+library(factoextra)
+library(cluster)
+
+setwd("~/MSDA/STA6704/code")
+M_PL = read.csv(file = "train.csv")
+
+
+summary(M_PL)
+
+#Clean Data, Drop Categorical Rows
+M_PL <- subset(M_PL, select = -c(MSZoning, Street, Alley, LotShape, LandContour, Utilities, LotConfig, LandSlope, Neighborhood,
+                                 Condition1, Condition2, BldgType, HouseStyle, RoofStyle, RoofMatl, Exterior1st, Exterior2nd,
+                                 MasVnrType, ExterQual, ExterCond, Foundation, BsmtQual, BsmtCond, BsmtExposure, LotFrontage,
+                                 BsmtFinType1, BsmtFinType2, Heating, HeatingQC, CentralAir, Electrical, KitchenQual, Functional,
+                                 FireplaceQu, GarageType, GarageFinish, GarageQual, GarageCond, PavedDrive, PoolQC, GarageYrBlt,
+                                 Fence, MiscFeature, SaleCondition, SaleType))
+
+M_PL$MasVnrArea[is.na(M_PL$MasVnrArea)] <- 0
+
+#print( colnames(M_PL[ (colSums(is.na(M_PL)) > 0) ]))
+#M_PL<-M_PL[-which(is.na(M_PL$GarageType)),]
+#M_PL<-M_PL[-which(is.na(M_PL$BsmtQual)),]
+#M_PL<-M_PL[-which(is.na(M_PL$BsmtExposure)),]
+#M_PL<-M_PL[-which(is.na(M_PL$BsmtFinType2)),]
+#M_PL <- subset(M_PL, select = -c(Alley, PoolQC, Fence, MiscFeature, FireplaceQu, LotFrontage))
+#M_PL$MasVnrType[is.na(M_PL$MasVnrType)] <- 'None'
+#M_PL$MasVnrArea[is.na(M_PL$MasVnrArea)] <- 0
+#M_PL$Electrical[is.na(M_PL$Electrical)] <- 'SBrkr'
+#print( colnames(M_PL[ (colSums(is.na(M_PL)) > 0) ]))
+
+#sum(sapply(M_PL, is.na))
+#sum(sapply(M_PL, is.infinite))
+#sum(sapply(M_PL, is.nan))
+
+
+set.seed(123)
+scale_M <- scale(M_PL)
+
+# ELBOW METHOD
+factoextra::fviz_nbclust(x = scale_M, FUNcluster = kmeans, method = "wss")
+factoextra::fviz_nbclust(x = scale_M, FUNcluster = cluster::clara, method = "wss")
+factoextra::fviz_nbclust(x = scale_M, FUNcluster = cluster::pam, method = "wss")
+
+
+# SILHOUETTE
+factoextra::fviz_nbclust(x = scale_M, FUNcluster = kmeans, method = "silhouette")
+factoextra::fviz_nbclust(x = scale_M, FUNcluster = cluster::clara, method = "silhouette")
+factoextra::fviz_nbclust(x = scale_M, FUNcluster = cluster::pam, method = "silhouette")
+
+
+# GAP STATISTICS 
+clustGap <-cluster::clusGap(x = scale_M, FUNcluster = kmeans, K.max = 20)
+clustGap2 <-cluster::clusGap(x = scale_M, FUNcluster = cluster::clara, K.max = 20)
+clustGap4 <-cluster::clusGap(x = scale_M, FUNcluster = cluster::pam, K.max = 20)
+
+factoextra::fviz_gap_stat(gap_stat = clustGap)
+factoextra::fviz_gap_stat(gap_stat = clustGap2)
+factoextra::fviz_gap_stat(gap_stat = clustGap4)
+
+
+
+# K MEANS
+kmeans_1 <- kmeans(x = scale_M, centers = 2)
+kmeans_1
+useful::plot.kmeans(x = kmeans_1, data = scale_M)
+#Within SS - 13.3%, 690 - 770
+
+fpc::cluster.stats(d = dist(scale_M), clustering = kmeans_1$cluster, G2 = TRUE, G3 = TRUE)
+factoextra::fviz_cluster(object = kmeans_1, data = scale_M, labelsize = 0)
+
+
+
+
+#kmeans_2 <- kmeans(x = scale_M, centers = 5)
+#kmeans_2
+#useful::plot.kmeans(x = kmeans_2, data = scale_M)
+#Within SS - 24.9%, 124, 323, 601, 348, 64
+
+
+#kmeans_3 <- kmeans(x = scale_M, centers = 9)
+#kmeans_3
+#useful::plot.kmeans(x = kmeans_3, data = scale_M)
+#Within SS - 32.2%, 256, 369, 126, 109, 156, 72, 75, 234, 63
+
+
+
+
+# CLARA
+clara_M <- cluster::clara(x = scale_M, k = 3)
+plot(clara_M)
+
+fpc::cluster.stats(d = dist(scale_M), clustering = clara_M$cluster, G2 = TRUE, G3 = TRUE)
+factoextra::fviz_cluster(clara_M, labelsize = 0)
+
+
+# FANNY
+fanny_M <- cluster::fanny(x = scale_M, k = 2)
+plot(fanny_M)
+
+fpc::cluster.stats(d = dist(scale_M), clustering = fanny_M$cluster, G2 = TRUE, G3 = TRUE)
+factoextra::fviz_cluster(fanny_M)
+
+
+# PAM
+PAM_M <- cluster::pam(x = scale_M, k = 2)
+plot(PAM_M)
+
+fpc::cluster.stats(d = dist(scale_M), clustering = PAM_M$cluster, G2 = TRUE, G3 = TRUE)
+factoextra::fviz_cluster(PAM_M, labelsize = 0)
+
+
+
+
+
+v_dist <- c(
+  "canberra","manhattan","euclidean","maximum","minkowski"
+  #,"binary"
+)
+list_dist <- lapply(
+  X = v_dist,
+  FUN = function(distance_method) dist(
+    x = scale_M,
+    method = distance_method
+  )
+)
+names(list_dist) <- v_dist
+v_hclust <- c(
+  "ward.D","ward.D2","complete","mcquitty","average","single"
+  #,"median","centroid"
+)
+
+
+
+list_hclust <- list()
+for(j in v_dist) for(k in v_hclust) list_hclust[[j]][[k]] <- hclust(
+  d = list_dist[[j]],
+  method = k
+)
+par(
+  mfrow = c(length(v_dist),length(v_hclust)),
+  mar = c(0,0,0,0),
+  mai = c(0,0,0,0),
+  oma = c(0,0,0,0)
+)
+for(j in v_dist) for(k in v_hclust) plot(
+  x = list_hclust[[j]][[k]],
+  labels = FALSE,
+  axes = FALSE,
+  main = paste("\n",j,"\n",k)
+)
+
+
+
+
+
+
+# 1 H CLUST 
+M_coef <- matrix(
+  data = NA,
+  nrow = length(v_dist),
+  ncol = length(v_hclust)
+)
+rownames(M_coef) <- v_dist
+colnames(M_coef) <- v_hclust
+for(j in v_dist) for(k in v_hclust) try({
+  M_coef[j,k] <- cluster::coef.hclust(
+    object = list_hclust[[j]][[k]]
+  )
+})
+dev.off()
+## null device 
+##           1
+plot(
+  x = list_hclust[["manhattan"]][["single"]],
+  main = "Manhattan Single",
+  sub = ""
+)
+
+plot(
+  x = list_hclust[["canberra"]][["ward.D2"]],
+  main = "Canberra Ward's D2",
+  sub = ""
+)
+
+
+
+
+hclust_MPL1 <- hclust(dist_MPL, method = 'ward.D')
+plot(hclust_MPL1)
+hclust_MPL2 <- hclust(dist_MPL, method = 'ward.D2')
+plot(hclust_MPL2)
+hclust_MPL3 <- hclust(dist_MPL, method = 'single')
+plot(hclust_MPL3)
+
+
+# 2 AGNES
+agnes_MPL <- cluster::agnes(M_PL, method = 'ward')
+plot(agnes_MPL)
+agnes_MPL2 <- cluster::agnes(M_PL, method = 'single')
+plot(agnes_MPL2)
+
+# 3 DIANA
+diana_MPL <- cluster::diana(M_PL)
+plot(diana_MPL)
